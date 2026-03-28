@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大喜利新聞 — リアルタイム版</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet">
+
+<!-- ★ Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, get, onValue, update, remove }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ============================================================
+  // ★★★ ここにあなたのFirebase設定を貼り付けてください ★★★
+  // ============================================================
+  const firebaseConfig = {
+    apiKey:            "AIzaSyCihrEQroWi_dw1bV6X6e3R69F2u16XzBc",
+    authDomain:        "ogiri-shinbun.firebaseapp.com",
+    databaseURL:       "https://ogiri-shinbun-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:         "ogiri-shinbun",
+    storageBucket:     "ogiri-shinbun.firebasestorage.app",
+    messagingSenderId: "42423068552",
+    appId:             "1:42423068552:web:bda9662cefb33387d2bc3d"
+  };
+  // ============================================================
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+  window._db  = db;
+  window._ref = ref;
+  window._set = set;
+  window._get = get;
+  window._onValue  = onValue;
+  window._update   = update;
+  window._remove   = remove;
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+  :root {
+    --ink: #1a1208;
+    --paper: #f5f0e8;
+    --red: #c0392b;
+    --gold: #b8860b;
+    --light-ink: #5a4a3a;
+    --border: #8b7355;
+    --blank-bg: #fffbe6;
+    --blank-border: #c0392b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Noto Serif JP', serif;
+    min-height: 100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(139,115,85,0.08) 28px),
+      radial-gradient(ellipse at top left, #e8dcc8 0%, transparent 60%),
+      radial-gradient(ellipse at bottom right, #ddd0b8 0%, transparent 60%);
+  }
+
+  header {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .header-inner {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+  }
+  .header-flag {
+    background: var(--red);
+    padding: 18px 48px 18px 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+  }
+  .header-flag .paper-name {
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    white-space: nowrap;
+  }
+  .header-flag .edition {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.65rem;
+    opacity: 0.8;
+    letter-spacing: 0.1em;
+  }
+  .header-right {
+    padding: 14px 20px;
+    text-align: right;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.72rem;
+    opacity: 0.7;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+  .room-chip {
+    display: inline-block;
+    background: var(--gold);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    padding: 2px 10px;
+    border-radius: 20px;
+  }
+
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ---- LOBBY ---- */
+  #screen-lobby {
+    text-align: center;
+    padding: 48px 20px;
+  }
+  .start-logo {
+    font-size: 3.2rem;
+    font-weight: 900;
+    color: var(--red);
+    letter-spacing: 0.2em;
+    line-height: 1;
+    margin-bottom: 6px;
+    text-shadow: 3px 3px 0 rgba(192,57,43,0.18);
+  }
+  .start-sub {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.88rem;
+    color: var(--light-ink);
+    letter-spacing: 0.15em;
+    margin-bottom: 36px;
+  }
+  .lobby-cards {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .lobby-card {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 2px;
+    padding: 28px 32px;
+    width: 260px;
+    text-align: left;
+    box-shadow: 4px 4px 0 rgba(139,115,85,0.15);
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .lobby-card:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 rgba(139,115,85,0.2); }
+  .lobby-card h3 {
+    font-size: 1rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+    color: var(--red);
+    letter-spacing: 0.05em;
+  }
+  .lobby-card p {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.8rem;
+    color: var(--light-ink);
+    line-height: 1.7;
+  }
+  .lobby-card .card-icon { font-size: 2rem; margin-bottom: 10px; }
+  .join-area {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .join-area input {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 2px;
+    padding: 12px 18px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.4em;
+    width: 180px;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--ink);
+    outline: none;
+  }
+  .join-area input:focus { border-color: var(--red); }
+
+  /* ---- WAITING ROOM ---- */
+  #screen-waiting {
+    text-align: center;
+    padding: 48px 20px;
+  }
+  .room-code-display {
+    font-size: 3.5rem;
+    font-weight: 900;
+    letter-spacing: 0.5em;
+    color: var(--red);
+    background: white;
+    border: 3px dashed var(--red);
+    display: inline-block;
+    padding: 16px 32px;
+    margin: 20px 0;
+    border-radius: 4px;
+  }
+  .players-list {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  .player-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.85rem;
+  }
+  .player-chip .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4caf50;
+  }
+  .player-chip .role-tag {
+    font-size: 0.65rem;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1px 6px;
+    border-radius: 10px;
+    letter-spacing: 0.1em;
+  }
+  .player-chip.reader .role-tag { background: var(--red); }
+  .waiting-msg {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.85rem;
+    color: var(--light-ink);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* ---- BUTTONS ---- */
+  .btn-primary {
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 14px 40px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    border-radius: 2px;
+    box-shadow: 4px 4px 0 rgba(192,57,43,0.28);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-primary:hover { transform: translate(-1px,-1px); box-shadow: 5px 5px 0 rgba(192,57,43,0.3); }
+  .btn-primary:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 rgba(192,57,43,0.3); }
+  .btn-primary:disabled { background: #aaa; box-shadow: none; cursor: not-allowed; transform: none; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 2px solid var(--border);
+    padding: 10px 28px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background 0.15s;
+  }
+  .btn-secondary:hover { background: rgba(139,115,85,0.1); }
+
+  /* ---- PHASE BANNER ---- */
+  .phase-banner {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 2px;
+  }
+  .phase-banner .phase-label {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    opacity: 0.7;
+  }
+  .phase-banner .phase-name { font-size: 1rem; font-weight: 700; letter-spacing: 0.1em; }
+  .phase-banner .badge {
+    margin-left: auto;
+    background: var(--red);
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  /* ---- ARTICLE ---- */
+  .article-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 32px;
+    margin-bottom: 20px;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.06);
+    position: relative;
+  }
+  .article-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--red), var(--gold));
+  }
+  .article-headline {
+    font-size: 1.45rem;
+    font-weight: 900;
+    line-height: 1.5;
+    margin-bottom: 14px;
+    letter-spacing: 0.03em;
+  }
+  .article-meta {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.72rem;
+    color: var(--light-ink);
+    border-top: 1px solid #e0d8cc;
+    border-bottom: 1px solid #e0d8cc;
+    padding: 6px 0;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 16px;
+  }
+  .article-body { font-size: 0.97rem; line-height: 2; color: var(--ink); }
+  .tag {
+    display: inline-block;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    padding: 2px 8px;
+    margin-bottom: 10px;
+  }
+
+  /* ---- BLANKS ---- */
+  .blank-slot {
+    display: inline-block;
+    min-width: 80px;
+    background: var(--blank-bg);
+    border-bottom: 2px dashed var(--blank-border);
+    margin: 0 2px;
+    vertical-align: bottom;
+  }
+  .blank-placeholder {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.75rem;
+    color: var(--blank-border);
+    padding: 0 8px;
+    opacity: 0.7;
+    font-style: italic;
+  }
+  .blank-hint-badge {
+    display: inline-block;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.62rem;
+    color: var(--light-ink);
+    background: #e8e0d0;
+    padding: 1px 5px;
+    border-radius: 10px;
+    vertical-align: super;
+    margin-left: 2px;
+  }
+  .blank-slot.clickable-reveal {
+    cursor: pointer;
+    border-bottom: 2px dashed var(--red);
+    background: #fff3e0;
+    transition: all 0.15s;
+  }
+  .blank-slot.clickable-reveal:hover { background: #ffe0b2; transform: scale(1.03); }
+  .blank-slot.answer-shown {
+    background: #fde8e8;
+    border-bottom: 2px solid var(--red);
+    font-weight: 700;
+    color: var(--red);
+    animation: popIn 0.25s ease;
+    padding: 0 8px;
+  }
+  @keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0.4; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ---- WRITE INPUTS ---- */
+  .blanks-inputs { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; }
+  .blank-input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 16px;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.04);
+  }
+  .blank-num {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.72rem;
+    color: white;
+    background: var(--red);
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .hint-label {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.78rem;
+    color: var(--light-ink);
+    min-width: 90px;
+    flex-shrink: 0;
+  }
+  .blank-input-row input {
+    flex: 1;
+    border: none;
+    border-bottom: 1px solid #d0c8b8;
+    background: transparent;
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    padding: 4px 6px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .blank-input-row input:focus { border-bottom-color: var(--red); }
+
+  /* ---- STATUS BOX ---- */
+  .status-box {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-box.info { border-left: 4px solid var(--gold); }
+  .status-box.success { border-left: 4px solid #4caf50; background: #f0fff0; }
+  .status-box.waiting-writers { border-left: 4px solid var(--red); }
+
+  /* ---- WRITER PROGRESS ---- */
+  .writers-progress {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+  .writer-status-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.75rem;
+  }
+  .writer-status-chip .chip-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc;
+  }
+  .writer-status-chip.done .chip-dot { background: #4caf50; }
+  .writer-status-chip.done { border-color: #4caf50; }
+
+  /* ---- REVEAL HINT ---- */
+  .reveal-hint {
+    background: #fff8e6;
+    border: 1px dashed var(--gold);
+    border-radius: 2px;
+    padding: 10px 18px;
+    margin-bottom: 16px;
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    font-size: 0.82rem;
+    color: var(--gold);
+    text-align: center;
+  }
+
+  /* ---- LOADING ---- */
+  .loading-overlay { text-align: center; padding: 60px 20px; }
+  .loading-spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(192,57,43,0.2);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    color: var(--light-ink);
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* ---- DIVIDER ---- */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; opacity: 0.4; }
+  .divider.thick { border-top: 3px double var(--border); opacity: 0.6; }
+
+  .name-input-area {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .name-input-area input {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 16px;
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    width: 200px;
+    outline: none;
+  }
+  .name-input-area input:focus { border-color: var(--red); }
+
+  @media (max-width: 600px) {
+    .header-flag .paper-name { font-size: 1.1rem; }
+    .article-headline { font-size: 1.15rem; }
+    .start-logo { font-size: 2.2rem; }
+    .article-card { padding: 18px 14px; }
+    .lobby-card { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-flag">
+      <div>
+        <div class="paper-name">大喜利新聞</div>
+        <div class="edition">OGIRI TIMES — REALTIME EDITION</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="header-date"></div>
+      <div id="header-room"></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen active">
+    <div class="start-logo">大喜利新聞</div>
+    <div class="start-sub">架空のニュースで笑わせろ。笑うな。— リアルタイム版</div>
+
+    <div class="name-input-area">
+      <input type="text" id="player-name" placeholder="あなたの名前を入力..." maxlength="12">
+    </div>
+
+    <div class="lobby-cards">
+      <div class="lobby-card" onclick="createRoom()">
+        <div class="card-icon">📰</div>
+        <h3>読み手としてはじめる</h3>
+        <p>新しいゲームルームを作成します。<br>参加コードを書き手に共有してください。</p>
+      </div>
+      <div class="lobby-card">
+        <div class="card-icon">✍️</div>
+        <h3>書き手として参加する</h3>
+        <p>読み手から教えてもらった<br>6文字のコードを入力してください。</p>
+        <div class="join-area" style="margin-top:14px">
+          <input type="text" id="room-code-input" maxlength="6" placeholder="XXXXXX" oninput="this.value=this.value.toUpperCase()">
+          <button class="btn-primary" style="padding:10px 18px" onclick="joinRoom()">参加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="screen-loading" class="screen">
+    <div class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loading-msg">接続中...</div>
+    </div>
+  </div>
+
+  <!-- WAITING ROOM (読み手) -->
+  <div id="screen-waiting" class="screen">
+    <div style="margin-bottom:8px;font-family:'Zen Kaku Gothic New',sans-serif;font-size:0.82rem;color:var(--light-ink);">参加コードを書き手の人たちに教えてください</div>
+    <div class="room-code-display" id="room-code-display">------</div>
+    <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:0.82rem;color:var(--light-ink);margin-bottom:20px;">書き手が揃ったら「ゲーム開始」を押してください</div>
+    <div class="players-list" id="waiting-players"></div>
+    <br>
+    <button class="btn-primary" id="start-game-btn" onclick="hostStartGame()" disabled>ゲーム開始</button>
+  </div>
+
+  <!-- WAITING ROOM (書き手) -->
+  <div id="screen-waiting-writer" class="screen">
+    <div style="text-align:center;padding:48px 20px">
+      <div style="font-size:2.5rem;margin-bottom:16px">✍️</div>
+      <div style="font-size:1.2rem;font-weight:700;margin-bottom:10px">ルームに参加しました！</div>
+      <div class="waiting-msg">読み手がゲームを開始するまでお待ちください...</div>
+      <br><br>
+      <div class="players-list" id="waiting-players-writer"></div>
+    </div>
+  </div>
+
+  <!-- WRITE PHASE (書き手) -->
+  <div id="screen-write" class="screen">
+    <div class="phase-banner">
+      <div>
+        <div class="phase-label">PHASE — 書き手タイム</div>
+        <div class="phase-name" id="write-phase-name">空欄を埋めてください</div>
+      </div>
+      <div class="badge" id="write-badge">書き手</div>
+    </div>
+    <div class="article-card" id="write-article"></div>
+    <div class="blanks-inputs" id="blanks-inputs"></div>
+    <div style="display:flex;gap:12px;justify-content:flex-end">
+      <button class="btn-primary" id="submit-btn" onclick="submitAnswers()" disabled>回答を送信する →</button>
+    </div>
+  </div>
+
+  <!-- SUBMITTED (書き手 回答後) -->
+  <div id="screen-submitted" class="screen">
+    <div style="text-align:center;padding:60px 20px">
+      <div style="font-size:3rem;margin-bottom:16px">📨</div>
+      <div style="font-size:1.3rem;font-weight:700;margin-bottom:10px">回答を送信しました！</div>
+      <div class="waiting-msg">他の書き手の回答を待っています...</div>
+      <br><br>
+      <div class="writers-progress" id="submit-progress" style="justify-content:center"></div>
+    </div>
+  </div>
+
+  <!-- HOST WAITING FOR WRITERS -->
+  <div id="screen-host-waiting" class="screen">
+    <div style="text-align:center;padding:40px 20px">
+      <div style="font-size:2rem;margin-bottom:12px">⏳</div>
+      <div style="font-size:1.2rem;font-weight:700;margin-bottom:16px">書き手の回答を待っています...</div>
+      <div class="writers-progress" id="host-progress" style="justify-content:center"></div>
+    </div>
+  </div>
+
+  <!-- READ PHASE (読み手) -->
+  <div id="screen-read" class="screen">
+    <div class="phase-banner" style="background:var(--red)">
+      <div>
+        <div class="phase-label">PHASE — 読み手タイム</div>
+        <div class="phase-name">笑わずに読み切れ！</div>
+      </div>
+      <div class="badge" style="background:var(--ink)">😐 笑うな</div>
+    </div>
+    <div class="reveal-hint">💡 空欄部分をクリックすると書き手の答えが表示されます</div>
+    <div class="article-card" id="read-article"></div>
+    <hr class="divider thick">
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn-primary" onclick="playAgain()">もう一回</button>
+      <button class="btn-secondary" onclick="backToLobby()">タイトルへ</button>
+    </div>
+  </div>
+
+  <!-- WRITER READ VIEW (書き手 — 読み手が読んでいる画面) -->
+  <div id="screen-writer-read" class="screen">
+    <div style="text-align:center;padding:40px 20px">
+      <div style="font-size:2.5rem;margin-bottom:12px">👂</div>
+      <div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">読み手が読んでいます！</div>
+      <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:0.85rem;color:var(--light-ink);margin-bottom:32px">笑わせられるか...？</div>
+      <div class="article-card" id="writer-read-article" style="text-align:left;max-width:700px;margin:0 auto 24px"></div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn-primary" onclick="playAgain()">もう一回</button>
+        <button class="btn-secondary" onclick="backToLobby()">タイトルへ</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // =============================================
+  // STATE
+  // =============================================
+  const S = {
+    role: null,          // 'host' or 'writer'
+    roomId: null,
+    playerName: '',
+    playerId: 'p_' + Math.random().toString(36).slice(2,8),
+    article: null,
+    unsubscribes: [],
+  };
+
+  document.getElementById('header-date').textContent =
+    new Date().toLocaleDateString('ja-JP', {year:'numeric',month:'long',day:'numeric',weekday:'long'});
+
+  // =============================================
+  // UTILS
+  // =============================================
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function setLoading(msg) {
+    document.getElementById('loading-msg').textContent = msg;
+    showScreen('screen-loading');
+  }
+
+  function genRoomId() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+  }
+
+  function db() { return window._db; }
+
+  function dbRef(path) { return window._ref(db(), path); }
+
+  function stopListeners() {
+    S.unsubscribes.forEach(u => u());
+    S.unsubscribes = [];
+  }
+
+  // =============================================
+  // LOBBY
+  // =============================================
+  async function createRoom() {
+    await waitFirebase();
+    const name = document.getElementById('player-name').value.trim() || '読み手';
+    S.playerName = name;
+    S.role = 'host';
+    S.roomId = genRoomId();
+
+    setLoading('ルームを作成中...');
+    document.getElementById('header-room').innerHTML = `<span class="room-chip">${S.roomId}</span>`;
+
+    await window._set(dbRef(`rooms/${S.roomId}`), {
+      phase: 'waiting',
+      hostId: S.playerId,
+      createdAt: Date.now(),
+      players: {
+        [S.playerId]: { name, role: 'host', joinedAt: Date.now() }
+      }
+    });
+
+    document.getElementById('room-code-display').textContent = S.roomId;
+    listenWaitingRoom();
+    showScreen('screen-waiting');
+  }
+
+  async function joinRoom() {
+    await waitFirebase();
+    const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+    if (code.length < 4) { alert('ルームコードを入力してください'); return; }
+    const name = document.getElementById('player-name').value.trim() || '書き手';
+    S.playerName = name;
+    S.role = 'writer';
+    S.roomId = code;
+
+    setLoading('ルームに参加中...');
+    document.getElementById('header-room').innerHTML = `<span class="room-chip">${S.roomId}</span>`;
+
+    const snap = await window._get(dbRef(`rooms/${S.roomId}`));
+    if (!snap.exists()) { alert('ルームが見つかりません。コードを確認してください。'); showScreen('screen-lobby'); return; }
+
+    await window._update(dbRef(`rooms/${S.roomId}/players`), {
+      [S.playerId]: { name, role: 'writer', joinedAt: Date.now() }
+    });
+
+    listenAsWriter();
+  }
+
+  function waitFirebase() {
+    return new Promise(res => {
+      if (window._firebaseReady) return res();
+      document.addEventListener('firebase-ready', res, { once: true });
+    });
+  }
+
+  // =============================================
+  // WAITING ROOM
+  // =============================================
+  function listenWaitingRoom() {
+    const unsub = window._onValue(dbRef(`rooms/${S.roomId}/players`), snap => {
+      const players = snap.val() || {};
+      renderWaitingPlayers(players);
+      const writerCount = Object.values(players).filter(p => p.role === 'writer').length;
+      document.getElementById('start-game-btn').disabled = writerCount === 0;
+    });
+    S.unsubscribes.push(() => unsub());
+  }
+
+  function renderWaitingPlayers(players) {
+    const html = Object.values(players).map(p => `
+      <div class="player-chip ${p.role === 'host' ? 'reader' : ''}">
+        <div class="dot"></div>
+        <span>${p.name}</span>
+        <span class="role-tag">${p.role === 'host' ? '読み手' : '書き手'}</span>
+      </div>
+    `).join('');
+    const el1 = document.getElementById('waiting-players');
+    const el2 = document.getElementById('waiting-players-writer');
+    if (el1) el1.innerHTML = html;
+    if (el2) el2.innerHTML = html;
+  }
+
+  // =============================================
+  // WRITER LISTENING
+  // =============================================
+  function listenAsWriter() {
+    const unsub = window._onValue(dbRef(`rooms/${S.roomId}`), snap => {
+      const room = snap.val();
+      if (!room) return;
+
+      renderWaitingPlayers(room.players || {});
+
+      if (room.phase === 'waiting') {
+        showScreen('screen-waiting-writer');
+      } else if (room.phase === 'writing' && room.article) {
+        S.article = room.article;
+        renderWritePhase();
+      } else if (room.phase === 'reading' && room.article) {
+        S.article = room.article;
+        renderWriterReadView(room.answers || {});
+      }
+    });
+    S.unsubscribes.push(() => unsub());
+  }
+
+  // =============================================
+  // HOST START GAME
+  // =============================================
+  async function hostStartGame() {
+    document.getElementById('start-game-btn').disabled = true;
+    setLoading('架空ニュースを捏造中...');
+    startLoadingMessages();
+
+    try {
+      const article = await generateArticle();
+      S.article = article;
+
+      const snap = await window._get(dbRef(`rooms/${S.roomId}/players`));
+      const players = snap.val() || {};
+      const writerIds = Object.keys(players).filter(id => players[id].role === 'writer');
+      const writerAnswers = {};
+      writerIds.forEach(id => { writerAnswers[id] = { submitted: false, name: players[id].name }; });
+
+      await window._update(dbRef(`rooms/${S.roomId}`), {
+        phase: 'writing',
+        article,
+        answers: writerAnswers
+      });
+
+      // Host waits
+      listenForWriterSubmissions();
+      showScreen('screen-host-waiting');
+      renderHostProgress({});
+
+    } catch(e) {
+      console.error(e);
+      alert('記事の生成に失敗しました。もう一度お試しください。');
+      showScreen('screen-waiting');
+    }
+  }
+
+  let _loadingTimer = null;
+  function startLoadingMessages() {
+    const msgs = ['架空ニュースを捏造中...','記者が妄想中...','活字職人が奮闘中...','デスクが校正を拒否...'];
+    let i = 0;
+    _loadingTimer = setInterval(() => {
+      document.getElementById('loading-msg').textContent = msgs[i++ % msgs.length];
+    }, 1300);
+  }
+  function stopLoadingMessages() {
+    if (_loadingTimer) { clearInterval(_loadingTimer); _loadingTimer = null; }
+  }
+
+  // =============================================
+  // ARTICLE GENERATION
+  // =============================================
+  async function generateArticle() {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `架空のおかしなニュース記事を1本作ってください。ユーモアがあり、大喜利のネタとして使えるような内容にしてください。
+
+以下のJSON形式で返してください（JSONのみ、説明文不要）:
+{
+  "category": "記事のカテゴリ（例：社会・政治・経済・スポーツ・科学・芸能）",
+  "headline": "記事の見出し（30文字以内）",
+  "date": "架空の日付（例：令和X年X月X日）",
+  "reporter": "架空の記者名",
+  "paragraphs": [
+    {
+      "text": "段落のテキスト。[BLANK_1]、[BLANK_2]のように空欄を入れる",
+      "blanks": [
+        {"id": "BLANK_1", "hint": "ヒント（例：人物名・場所・形容詞）"}
+      ]
+    }
+  ]
+}
+条件：記事は2〜3段落、合計で空欄3〜5個、ユーモラスな内容、実在の人物・企業は使わない`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content.map(c => c.text || '').join('');
+    const clean = text.replace(/\`\`\`json|\`\`\`/g, '').trim();
+    stopLoadingMessages();
+    return JSON.parse(clean);
+  }
+
+  // =============================================
+  // WRITE PHASE
+  // =============================================
+  function renderWritePhase() {
+    renderArticleForWriter();
+    renderInputs();
+    showScreen('screen-write');
+    checkInputs();
+  }
+
+  function getAllBlanks() {
+    const blanks = [];
+    S.article.paragraphs.forEach(p => {
+      if (p.blanks) p.blanks.forEach(b => blanks.push(b));
+    });
+    return blanks;
+  }
+
+  function renderArticleForWriter() {
+    const art = S.article;
+    let html = `<div class="tag">${art.category}</div>
+      <div class="article-headline">${art.headline}</div>
+      <div class="article-meta">
+        <span>📅 ${art.date}</span><span>✍️ ${art.reporter}記者</span>
+      </div>
+      <div class="article-body">`;
+    art.paragraphs.forEach(p => {
+      let text = p.text;
+      if (p.blanks) p.blanks.forEach(b => {
+        text = text.replace(`[${b.id}]`,
+          `<span class="blank-slot"><span class="blank-placeholder">▢</span></span><span class="blank-hint-badge">${b.hint}</span>`);
+      });
+      html += `<p style="margin-bottom:14px">${text}</p>`;
+    });
+    html += `</div>`;
+    document.getElementById('write-article').innerHTML = html;
+  }
+
+  function renderInputs() {
+    const blanks = getAllBlanks();
+    document.getElementById('blanks-inputs').innerHTML = blanks.map((b, i) => `
+      <div class="blank-input-row">
+        <div class="blank-num">${i+1}</div>
+        <div class="hint-label">ヒント：${b.hint}</div>
+        <input type="text" id="input-${b.id}" placeholder="ここに入力..." maxlength="30" oninput="checkInputs()">
+      </div>
+    `).join('');
+  }
+
+  function checkInputs() {
+    const blanks = getAllBlanks();
+    const allFilled = blanks.every(b => {
+      const el = document.getElementById(`input-${b.id}`);
+      return el && el.value.trim() !== '';
+    });
+    const btn = document.getElementById('submit-btn');
+    if (btn) btn.disabled = !allFilled;
+  }
+
+  async function submitAnswers() {
+    const blanks = getAllBlanks();
+    const answers = {};
+    blanks.forEach(b => {
+      const el = document.getElementById(`input-${b.id}`);
+      answers[b.id] = el ? el.value.trim() : '';
+    });
+
+    await window._update(dbRef(`rooms/${S.roomId}/answers/${S.playerId}`), {
+      submitted: true,
+      answers
+    });
+
+    showScreen('screen-submitted');
+    listenSubmitProgress();
+  }
+
+  // =============================================
+  // PROGRESS TRACKING
+  // =============================================
+  function listenSubmitProgress() {
+    const unsub = window._onValue(dbRef(`rooms/${S.roomId}/answers`), snap => {
+      const answers = snap.val() || {};
+      renderSubmitProgress(answers);
+    });
+    S.unsubscribes.push(() => unsub());
+  }
+
+  function renderSubmitProgress(answers) {
+    const chips = Object.values(answers).map(a => `
+      <div class="writer-status-chip ${a.submitted ? 'done' : ''}">
+        <div class="chip-dot"></div>
+        <span>${a.name}</span>
+        <span style="font-size:0.65rem;margin-left:4px">${a.submitted ? '✓回答済' : '入力中...'}</span>
+      </div>
+    `).join('');
+    const el1 = document.getElementById('submit-progress');
+    const el2 = document.getElementById('host-progress');
+    if (el1) el1.innerHTML = chips;
+    if (el2) el2.innerHTML = chips;
+  }
+
+  function listenForWriterSubmissions() {
+    const unsub = window._onValue(dbRef(`rooms/${S.roomId}/answers`), snap => {
+      const answers = snap.val() || {};
+      renderSubmitProgress(answers);
+      const allDone = Object.values(answers).every(a => a.submitted);
+      if (allDone && Object.keys(answers).length > 0) {
+        transitionToReading(answers);
+      }
+    });
+    S.unsubscribes.push(() => unsub());
+  }
+
+  async function transitionToReading(answers) {
+    // Merge all answers into flat map
+    const merged = {};
+    Object.values(answers).forEach(wa => {
+      if (wa.answers) Object.assign(merged, wa.answers);
+    });
+
+    await window._update(dbRef(`rooms/${S.roomId}`), {
+      phase: 'reading',
+      mergedAnswers: merged
+    });
+
+    renderReadPhase(merged);
+  }
+
+  // =============================================
+  // READ PHASE (host)
+  // =============================================
+  function renderReadPhase(merged) {
+    const art = S.article;
+    let html = buildArticleHTML(art, merged, true);
+    document.getElementById('read-article').innerHTML = html;
+    showScreen('screen-read');
+  }
+
+  function buildArticleHTML(art, merged, clickable) {
+    let html = `<div class="tag">${art.category}</div>
+      <div class="article-headline">${art.headline}</div>
+      <div class="article-meta">
+        <span>📅 ${art.date}</span><span>✍️ ${art.reporter}記者</span>
+      </div>
+      <div class="article-body">`;
+    art.paragraphs.forEach(p => {
+      let text = p.text;
+      if (p.blanks) p.blanks.forEach(b => {
+        const answer = (merged && merged[b.id]) || '？';
+        if (clickable) {
+          text = text.replace(`[${b.id}]`,
+            `<span class="blank-slot clickable-reveal" data-answer="${encodeURIComponent(answer)}" onclick="revealBlank(this)"><span class="blank-placeholder">クリック</span></span>`);
+        } else {
+          text = text.replace(`[${b.id}]`,
+            `<span class="blank-slot answer-shown">${answer}</span>`);
+        }
+      });
+      html += `<p style="margin-bottom:14px">${text}</p>`;
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  function revealBlank(el) {
+    const answer = decodeURIComponent(el.dataset.answer);
+    el.innerHTML = answer;
+    el.classList.remove('clickable-reveal');
+    el.classList.add('answer-shown');
+    el.onclick = null;
+  }
+
+  // =============================================
+  // WRITER READ VIEW
+  // =============================================
+  function renderWriterReadView(answersRaw) {
+    const merged = {};
+    Object.values(answersRaw).forEach(wa => {
+      if (wa.answers) Object.assign(merged, wa.answers);
+    });
+    const html = buildArticleHTML(S.article, merged, false);
+    document.getElementById('writer-read-article').innerHTML = html;
+    showScreen('screen-writer-read');
+  }
+
+  // =============================================
+  // AGAIN / BACK
+  // =============================================
+  async function playAgain() {
+    if (S.role === 'host') {
+      await window._update(dbRef(`rooms/${S.roomId}`), { phase: 'waiting', article: null, answers: null, mergedAnswers: null });
+      listenWaitingRoom();
+      showScreen('screen-waiting');
+    } else {
+      showScreen('screen-waiting-writer');
+    }
+  }
+
+  function backToLobby() {
+    stopListeners();
+    S.roomId = null;
+    S.role = null;
+    document.getElementById('header-room').innerHTML = '';
+    showScreen('screen-lobby');
+  }
+
+  // Initial check
+  checkInputs();
+</script>
+</body>
+</html>
