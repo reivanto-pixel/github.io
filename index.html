@@ -906,43 +906,222 @@
   }
 
   // =============================================
-  // ARTICLE GENERATION
+  // ARTICLE GENERATION（内蔵記事20本からランダム選択）
   // =============================================
-  async function generateArticle() {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `架空のおかしなニュース記事を1本作ってください。ユーモアがあり、大喜利のネタとして使えるような内容にしてください。
-
-以下のJSON形式で返してください（JSONのみ、説明文不要）:
-{
-  "category": "記事のカテゴリ（例：社会・政治・経済・スポーツ・科学・芸能）",
-  "headline": "記事の見出し（30文字以内）",
-  "date": "架空の日付（例：令和X年X月X日）",
-  "reporter": "架空の記者名",
-  "paragraphs": [
+  const ARTICLES = [
     {
-      "text": "段落のテキスト。[BLANK_1]、[BLANK_2]のように空欄を入れる",
-      "blanks": [
-        {"id": "BLANK_1", "hint": "ヒント（例：人物名・場所・形容詞）"}
+      category:"社会", headline:"市内の公園に謎の巨大オブジェ出現、区長「知らない」",
+      date:"令和7年4月3日", reporter:"奥田 珍平",
+      paragraphs:[
+        {text:"東京都[BLANK_1]区の中央公園に2日未明、高さ約3メートルの[BLANK_2]を模した謎の構造物が忽然と現れ、早朝の散歩客を驚かせた。",
+         blanks:[{id:"BLANK_1",hint:"区の名前"},{id:"BLANK_2",hint:"物・生き物・食べ物など"}]},
+        {text:"区の担当者は「設置許可を出した記憶は一切ない」と[BLANK_3]な表情で語った。構造物には「[BLANK_4]」と書かれた小さな看板が貼られており、警察が[BLANK_5]の疑いで捜査を開始した。",
+         blanks:[{id:"BLANK_3",hint:"表情・様子"},{id:"BLANK_4",hint:"謎のメッセージ"},{id:"BLANK_5",hint:"罪名っぽいもの"}]}
+      ]
+    },
+    {
+      category:"経済", headline:"老舗そば屋が新メニュー発表、試食会で全員が沈黙",
+      date:"令和7年2月14日", reporter:"浜田 そば子",
+      paragraphs:[
+        {text:"創業120年の老舗「[BLANK_1]庵」は13日、新商品「[BLANK_2]そば」を発表した。開発に3年を費やしたという渾身の一品だ。",
+         blanks:[{id:"BLANK_1",hint:"屋号っぽい名前"},{id:"BLANK_2",hint:"そばに合わなそうな形容詞や食材"}]},
+        {text:"試食会に招待された記者20名は全員が一口食べた後、[BLANK_3]秒間の沈黙に包まれた。主人の[BLANK_4]氏は「[BLANK_5]という感想が一番多い」と満足げに語った。",
+         blanks:[{id:"BLANK_3",hint:"秒数"},{id:"BLANK_4",hint:"名字"},{id:"BLANK_5",hint:"よくわからない感想"}]}
+      ]
+    },
+    {
+      category:"スポーツ", headline:"地元サッカーチーム、監督に[BLANK_1]を就任させ話題に",
+      date:"令和7年3月1日", reporter:"蹴田 球介",
+      paragraphs:[
+        {text:"地域リーグ所属の「[BLANK_2]FC」は28日、新監督に[BLANK_1]を招聘したと発表した。サッカー界では前例のない人事に関係者は騒然としている。",
+         blanks:[{id:"BLANK_1",hint:"サッカーと無関係そうな職業・有名人・キャラクター"},{id:"BLANK_2",hint:"チーム名っぽいもの"}]},
+        {text:"新監督は就任会見で「選手には毎朝[BLANK_3]を課す」と宣言。選手の一人は「[BLANK_4]ので正直不安だが、[BLANK_5]ことは学べそう」とコメントした。",
+         blanks:[{id:"BLANK_3",hint:"謎のトレーニング内容"},{id:"BLANK_4",hint:"不安な理由"},{id:"BLANK_5",hint:"役に立たなそうなこと"}]}
+      ]
+    },
+    {
+      category:"科学", headline:"大学教授「水を飲むと眠くなる」研究発表、学会騒然",
+      date:"令和7年5月22日", reporter:"理田 論子",
+      paragraphs:[
+        {text:"[BLANK_1]大学の[BLANK_2]教授は21日、「水を飲むと眠気が生じる」とする研究結果を発表した。被験者[BLANK_3]名を対象に行った5年間の追跡調査によるものだ。",
+         blanks:[{id:"BLANK_1",hint:"大学名っぽいもの"},{id:"BLANK_2",hint:"教授の名字"},{id:"BLANK_3",hint:"人数"}]},
+        {text:"学会では「当たり前では？」という反応が大半を占めたが、教授は「[BLANK_4]という観点から見ると革命的だ」と主張。研究費は総額[BLANK_5]円だったと明かした。",
+         blanks:[{id:"BLANK_4",hint:"謎の観点・分野"},{id:"BLANK_5",hint:"金額（多すぎor少なすぎ）"}]}
+      ]
+    },
+    {
+      category:"芸能", headline:"人気俳優、結婚相手が「[BLANK_1]」と発表しネット騒然",
+      date:"令和7年6年11日", reporter:"芸能 花子",
+      paragraphs:[
+        {text:"人気俳優の[BLANK_2]（[BLANK_3]歳）は10日、自身のSNSで結婚を報告した。相手については「[BLANK_1]」とだけ記されており、詳細は明かされていない。",
+         blanks:[{id:"BLANK_1",hint:"人・もの・概念など何でも"},{id:"BLANK_2",hint:"俳優っぽい芸名"},{id:"BLANK_3",hint:"年齢"}]},
+        {text:"ファンの間では「[BLANK_4]ということ？」「[BLANK_5]なら応援する」など様々な憶測が飛び交っており、SNSのトレンドを独占している。",
+         blanks:[{id:"BLANK_4",hint:"ファンの解釈（謎）"},{id:"BLANK_5",hint:"謎の条件"}]}
+      ]
+    },
+    {
+      category:"社会", headline:"電車内で「[BLANK_1]」する男性が目撃され通報",
+      date:"令和7年8月30日", reporter:"通 報夫",
+      paragraphs:[
+        {text:"[BLANK_2]線の車内で29日夕方、男性が突然[BLANK_1]し始める出来事があり、乗客が駅員に通報した。男性は[BLANK_3]歳くらいで、[BLANK_4]な服装だったという。",
+         blanks:[{id:"BLANK_1",hint:"電車内でするには謎の行動"},{id:"BLANK_2",hint:"路線名っぽいもの"},{id:"BLANK_3",hint:"年齢"},{id:"BLANK_4",hint:"服装の特徴"}]},
+        {text:"駆けつけた駅員に男性は「[BLANK_5]だから仕方ない」と説明。その場にいた乗客の一人は「怖かったけど少し笑ってしまった」と話した。",
+         blanks:[{id:"BLANK_5",hint:"謎の言い訳"}]}
+      ]
+    },
+    {
+      category:"政治", headline:"市議会、「[BLANK_1]を市の公式キャラに」提案で紛糾",
+      date:"令和7年9月4日", reporter:"議田 与党",
+      paragraphs:[
+        {text:"[BLANK_2]市議会は3日、市の公式マスコットキャラクターを[BLANK_1]にする案が一部議員から提出され、賛否両論を呼んでいる。提出者の[BLANK_3]議員は「[BLANK_4]な点が市のイメージにぴったり」と主張した。",
+         blanks:[{id:"BLANK_1",hint:"キャラクターにしては謎のもの"},{id:"BLANK_2",hint:"市の名前"},{id:"BLANK_3",hint:"議員の名字"},{id:"BLANK_4",hint:"謎のポジティブな特徴"}]},
+        {text:"反対議員からは「[BLANK_5]という理由で断固反対」との声明が出ており、次回会議まで継続審議となった。",
+         blanks:[{id:"BLANK_5",hint:"謎の反対理由"}]}
+      ]
+    },
+    {
+      category:"国際", headline:"隣国大統領、首脳会談中に「[BLANK_1]」発言で外交問題に",
+      date:"令和7年11月18日", reporter:"外電 国際",
+      paragraphs:[
+        {text:"[BLANK_2]国のリーダーが17日、首脳会談の席上で突然「[BLANK_1]」と発言したことが外交筋の話で明らかになった。同席した通訳は[BLANK_3]秒間フリーズしたという。",
+         blanks:[{id:"BLANK_1",hint:"外交の場で言ってはいけなそうな一言"},{id:"BLANK_2",hint:"架空の国名"},{id:"BLANK_3",hint:"秒数"}]},
+        {text:"日本側の担当者は「[BLANK_4]という解釈で今は進めている」と苦しい説明を行った。SNSでは「[BLANK_5]」というコメントが10万件を超えている。",
+         blanks:[{id:"BLANK_4",hint:"無理やりな好意的解釈"},{id:"BLANK_5",hint:"ネット民のコメント"}]}
+      ]
+    },
+    {
+      category:"社会", headline:"小学校の給食に「[BLANK_1]」が登場、賛否両論",
+      date:"令和7年10月7日", reporter:"食育 栄養",
+      paragraphs:[
+        {text:"[BLANK_2]市立[BLANK_3]小学校は6日、今月の給食メニューに「[BLANK_1]」を追加すると発表した。栄養士の[BLANK_4]さんは「子どもの[BLANK_5]を鍛えるためのメニュー」と説明した。",
+         blanks:[{id:"BLANK_1",hint:"小学校の給食にありえなそうな料理"},{id:"BLANK_2",hint:"市の名前"},{id:"BLANK_3",hint:"小学校の名前っぽいもの"},{id:"BLANK_4",hint:"栄養士の名前"},{id:"BLANK_5",hint:"鍛えられそうな謎の能力"}]}
+      ]
+    },
+    {
+      category:"経済", headline:"スタートアップ企業、「[BLANK_1]するだけ」サービスで億超え調達",
+      date:"令和7年7月23日", reporter:"資金 調達夫",
+      paragraphs:[
+        {text:"創業半年のスタートアップ「[BLANK_2]株式会社」が、ユーザーが[BLANK_1]するだけで完結するサービスを引っ提げ、総額[BLANK_3]億円の資金調達に成功した。",
+         blanks:[{id:"BLANK_1",hint:"めちゃくちゃ簡単な（またはどうでもいい）行動"},{id:"BLANK_2",hint:"会社名っぽいカタカナ"},{id:"BLANK_3",hint:"金額"}]},
+        {text:"CEOの[BLANK_4]氏は「[BLANK_5]という社会課題を解決する」と力説したが、投資家の一人は「よくわからないけど伸びそう」とコメントした。",
+         blanks:[{id:"BLANK_4",hint:"CEOの名前"},{id:"BLANK_5",hint:"解決したい謎の社会課題"}]}
+      ]
+    },
+    {
+      category:"科学", headline:"「[BLANK_1]を見るとIQが上がる」論文が物議",
+      date:"令和7年1月15日", reporter:"脳科 学太",
+      paragraphs:[
+        {text:"[BLANK_2]研究所が発表した論文によると、毎日[BLANK_1]を[BLANK_3]分見続けることで、平均IQが[BLANK_4]ポイント上昇するという結果が得られたとしている。",
+         blanks:[{id:"BLANK_1",hint:"IQを上げる根拠がなさそうなもの"},{id:"BLANK_2",hint:"研究機関っぽい名前"},{id:"BLANK_3",hint:"分数"},{id:"BLANK_4",hint:"IQの上昇ポイント"}]},
+        {text:"専門家からは「[BLANK_5]の可能性が高い」と批判が相次いでいるが、SNSでは試してみた人々の投稿が爆発的に増加している。",
+         blanks:[{id:"BLANK_5",hint:"批判的な言葉（でたらめ・捏造など）"}]}
+      ]
+    },
+    {
+      category:"スポーツ", headline:"マラソン大会、先頭集団が全員「[BLANK_1]」し失格騒動",
+      date:"令和7年4月20日", reporter:"走田 完走",
+      paragraphs:[
+        {text:"[BLANK_2]マラソン大会で19日、先頭を走っていた選手[BLANK_3]名が30キロ地点でいっせいに[BLANK_1]したことが判明し、規定違反として失格処分となった。",
+         blanks:[{id:"BLANK_1",hint:"マラソン中にやってはいけなそうな行動"},{id:"BLANK_2",hint:"大会名っぽいもの"},{id:"BLANK_3",hint:"人数"}]},
+        {text:"選手たちは「[BLANK_4]のでつい」と口をそろえたが、大会委員長は「いかなる理由があっても[BLANK_5]は禁止」と規定を読み上げた。",
+         blanks:[{id:"BLANK_4",hint:"やってしまった理由"},{id:"BLANK_5",hint:"禁止行為の正式名称っぽいもの"}]}
+      ]
+    },
+    {
+      category:"芸能", headline:"人気バンド、新曲タイトルが「[BLANK_1]」で炎上と話題が同時発生",
+      date:"令和7年3月14日", reporter:"音楽 評論",
+      paragraphs:[
+        {text:"5人組バンド「[BLANK_2]」が13日にリリースした新曲「[BLANK_1]」が、発売直後から賛否両論の嵐となっている。楽曲自体は[BLANK_3]なサウンドだという。",
+         blanks:[{id:"BLANK_1",hint:"曲名にするには謎すぎるタイトル"},{id:"BLANK_2",hint:"バンド名っぽいもの"},{id:"BLANK_3",hint:"音楽の雰囲気を表す言葉"}]},
+        {text:"ボーカルの[BLANK_4]は「タイトルの意味は[BLANK_5]ということ」と説明したが、ファンの混乱はさらに深まった。",
+         blanks:[{id:"BLANK_4",hint:"ボーカルの名前"},{id:"BLANK_5",hint:"さらに謎な解説"}]}
+      ]
+    },
+    {
+      category:"社会", headline:"宅配ボックスに入っていたのは荷物ではなく「[BLANK_1]」",
+      date:"令和7年2月3日", reporter:"配達 員夫",
+      paragraphs:[
+        {text:"[BLANK_2]市在住の[BLANK_3]さんが荷物を受け取るため宅配ボックスを開けたところ、注文した商品の代わりに[BLANK_1]が入っていたと届け出た。",
+         blanks:[{id:"BLANK_1",hint:"宅配ボックスに入っていたら困るもの"},{id:"BLANK_2",hint:"市の名前"},{id:"BLANK_3",hint:"住民の名字"}]},
+        {text:"配送業者は「[BLANK_4]による誤配の可能性がある」と謝罪。なお[BLANK_3]さんの注文品は[BLANK_5]の宅配ボックスに入っていたことが後に判明した。",
+         blanks:[{id:"BLANK_4",hint:"謎の誤配原因"},{id:"BLANK_5",hint:"場所（隣の家・遠い場所など）"}]}
+      ]
+    },
+    {
+      category:"国際", headline:"世界初「[BLANK_1]選手権」開催、日本代表が謎の失格",
+      date:"令和7年9年22日", reporter:"国際 競技",
+      paragraphs:[
+        {text:"[BLANK_2]で21日、世界初となる「[BLANK_1]選手権」が開幕した。32カ国から選手が参加し、日本代表の[BLANK_3]選手も出場したが、予選で失格となった。",
+         blanks:[{id:"BLANK_1",hint:"スポーツとは言い難い謎の競技名"},{id:"BLANK_2",hint:"開催国または都市名"},{id:"BLANK_3",hint:"選手の名前"}]},
+        {text:"失格の理由は「[BLANK_4]」とのことで、日本オリンピック委員会は「[BLANK_5]ため抗議は行わない」と声明を出した。",
+         blanks:[{id:"BLANK_4",hint:"謎の失格理由"},{id:"BLANK_5",hint:"抗議しない謎の理由"}]}
+      ]
+    },
+    {
+      category:"社会", headline:"近所の野良猫、町内会の会長に「立候補」し物議",
+      date:"令和7年5年10日", reporter:"地域 密着",
+      paragraphs:[
+        {text:"[BLANK_1]町の住民によると、地域に住みつく野良猫「[BLANK_2]」が今月の町内会長選挙に立候補する意思を示しているとして、関係者が困惑している。",
+         blanks:[{id:"BLANK_1",hint:"町の名前"},{id:"BLANK_2",hint:"猫の名前"}]},
+        {text:"猫の代理人を名乗る[BLANK_3]さんは「[BLANK_4]という実績がある」と主張。現会長は「[BLANK_5]であれば問題ないとは思うが…」と語るにとどめた。",
+         blanks:[{id:"BLANK_3",hint:"代理人の名前"},{id:"BLANK_4",hint:"猫の謎の実績"},{id:"BLANK_5",hint:"謎の当選条件"}]}
+      ]
+    },
+    {
+      category:"経済", headline:"「一日[BLANK_1]するだけ」節約術が書籍化、100万部突破",
+      date:"令和7年8年5日", reporter:"家計 節約子",
+      paragraphs:[
+        {text:"「毎日[BLANK_1]するだけで年間[BLANK_2]万円節約できる」という内容の書籍が発売から3カ月で100万部を突破した。著者の[BLANK_3]氏は元[BLANK_4]という異色の経歴を持つ。",
+         blanks:[{id:"BLANK_1",hint:"節約と関係なさそうな行動"},{id:"BLANK_2",hint:"節約できる金額"},{id:"BLANK_3",hint:"著者の名前"},{id:"BLANK_4",hint:"謎の前職"}]},
+        {text:"試した読者からは「本当に[BLANK_5]」という声が多数寄せられているという。",
+         blanks:[{id:"BLANK_5",hint:"読者の感想（謎でもOK）"}]}
+      ]
+    },
+    {
+      category:"社会", headline:"市役所の自動案内、突然「[BLANK_1]」と言い出す不具合",
+      date:"令和7年6年30日", reporter:"情報 システム",
+      paragraphs:[
+        {text:"[BLANK_2]市役所に設置されている自動音声案内システムが29日から、通常の案内メッセージの途中で「[BLANK_1]」と発話する不具合が発生している。",
+         blanks:[{id:"BLANK_1",hint:"市役所の案内で言ってはいけない一言"},{id:"BLANK_2",hint:"市の名前"}]},
+        {text:"担当の[BLANK_3]課長は「[BLANK_4]が原因の可能性がある」と説明。修正まで平均[BLANK_5]時間かかる見通しだという。",
+         blanks:[{id:"BLANK_3",hint:"課長の名字"},{id:"BLANK_4",hint:"謎の不具合原因"},{id:"BLANK_5",hint:"時間数"}]}
+      ]
+    },
+    {
+      category:"芸能", headline:"人気グルメ番組、ロケ中に出演者が「[BLANK_1]」を発注し撮影中断",
+      date:"令和7年7年16日", reporter:"テレビ 欄子",
+      paragraphs:[
+        {text:"食べ歩きバラエティ「[BLANK_2]」の収録が15日、出演者の[BLANK_3]が老舗料理店で「[BLANK_1]」を注文したことにより、[BLANK_4]分にわたって中断した。",
+         blanks:[{id:"BLANK_1",hint:"飲食店で頼んではいけなそうなもの"},{id:"BLANK_2",hint:"番組名っぽいもの"},{id:"BLANK_3",hint:"芸能人っぽい名前"},{id:"BLANK_4",hint:"中断時間（分）"}]},
+        {text:"店主は「[BLANK_5]という気持ちはわかるが、当店では出せない」と丁重に断ったという。",
+         blanks:[{id:"BLANK_5",hint:"注文したくなる謎の気持ち"}]}
+      ]
+    },
+    {
+      category:"スポーツ", headline:"高校球児、打席でまさかの「[BLANK_1]」行為に球場騒然",
+      date:"令和7年8年10日", reporter:"高校 野球男",
+      paragraphs:[
+        {text:"[BLANK_2]高校と[BLANK_3]高校が対戦した夏の地方大会準決勝で、9回表に打席に立った[BLANK_2]高の4番打者が、投球直前に突然[BLANK_1]し、球場がどよめいた。",
+         blanks:[{id:"BLANK_1",hint:"打席でやってはいけない行動"},{id:"BLANK_2",hint:"高校名A"},{id:"BLANK_3",hint:"高校名B"}]},
+        {text:"審判は[BLANK_4]秒間フリーズした後「[BLANK_5]」と宣言。監督は「作戦ではない」とコメントした。",
+         blanks:[{id:"BLANK_4",hint:"秒数"},{id:"BLANK_5",hint:"審判の謎の宣言"}]}
       ]
     }
-  ]
-}
-条件：記事は2〜3段落、合計で空欄3〜5個、ユーモラスな内容、実在の人物・企業は使わない`
-        }]
-      })
-    });
-    const data = await resp.json();
-    const text = data.content.map(c => c.text || '').join('');
-    const clean = text.replace(/\`\`\`json|\`\`\`/g, '').trim();
+  ];
+
+  async function generateArticle() {
+    // 使用済みインデックスを避けてランダム選択
+    const used = S._usedArticleIndexes || [];
+    let available = ARTICLES.map((_,i) => i).filter(i => !used.includes(i));
+    if (available.length === 0) {
+      available = ARTICLES.map((_,i) => i);
+      S._usedArticleIndexes = [];
+    }
+    const idx = available[Math.floor(Math.random() * available.length)];
+    if (!S._usedArticleIndexes) S._usedArticleIndexes = [];
+    S._usedArticleIndexes.push(idx);
     stopLoadingMessages();
-    return JSON.parse(clean);
+    return JSON.parse(JSON.stringify(ARTICLES[idx])); // deep copy
   }
 
   // =============================================
